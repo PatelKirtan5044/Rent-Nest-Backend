@@ -26,7 +26,7 @@ const app = express();
 const server = http.createServer(app);
 
 // 1. Middlewares
-const allowedOrigins = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
+const allowedOrigins = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'https://rent-nest-eu5p.onrender.com'];
 
 app.use(
   cors({
