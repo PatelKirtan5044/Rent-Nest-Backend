@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const https = require('https');
 const Lease = require('../models/Lease');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
@@ -122,6 +123,18 @@ const markPaymentsOverdue = async () => {
 };
 
 // Start all background cron schedules
+const startKeepAlive = () => {
+  if (process.env.NODE_ENV !== 'production') return;
+  const url = 'https://rent-nest-backend.onrender.com/api/properties';
+  setInterval(() => {
+    https.get(url, (res) => {
+      // Keep-alive successful
+    }).on('error', (err) => {
+      // Ignore network errors
+    });
+  }, 600000); // 10 minutes
+};
+
 const initCrons = () => {
   // Run every day at midnight (0 0 * * *)
   cron.schedule('0 0 * * *', async () => {
@@ -136,6 +149,9 @@ const initCrons = () => {
     await generateMonthlyInvoices();
     await markPaymentsOverdue();
   }, 5000); // Wait 5 seconds after boot to make sure DB is fully connected
+
+  // Start keep-alive self-pings in production
+  startKeepAlive();
 
   console.log('Cron scheduler service initialized.');
 };
