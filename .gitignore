@@ -1,0 +1,10 @@
+node_modules/
+.env
+.DS_Store
+public/leases/*
+public/receipts/*
+public/uploads/*
+# Keep directories but not files
+!public/leases/.gitkeep
+!public/receipts/.gitkeep
+!public/uploads/.gitkeep
