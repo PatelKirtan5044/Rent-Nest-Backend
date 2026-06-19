@@ -35,7 +35,7 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost:') || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'), false);
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']

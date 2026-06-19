@@ -19,7 +19,7 @@ const initSocket = (server) => {
         if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
           return callback(null, true);
         }
-        return callback(new Error('Not allowed by CORS'), false);
+        return callback(null, false);
       },
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
       credentials: true
