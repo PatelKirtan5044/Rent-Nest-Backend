@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const { cloudinary, isCloudinaryConfigured } = require('../config/cloudinary');
 
 const leasesDir = path.join(__dirname, '../public/leases');
 const receiptsDir = path.join(__dirname, '../public/receipts');
@@ -108,12 +109,33 @@ const generateLeasePDF = (lease, property, landlord, tenant) => {
 
       doc.end();
 
-      writeStream.on('finish', () => {
-        resolve({
-          filePath,
-          filename,
-          url: `/leases/${filename}`
-        });
+      writeStream.on('finish', async () => {
+        try {
+          if (isCloudinaryConfigured()) {
+            const result = await cloudinary.uploader.upload(filePath, {
+              folder: 'rental_leases',
+              resource_type: 'auto'
+            });
+            resolve({
+              filePath,
+              filename,
+              url: result.secure_url
+            });
+          } else {
+            resolve({
+              filePath,
+              filename,
+              url: `/leases/${filename}`
+            });
+          }
+        } catch (uploadErr) {
+          console.error('Cloudinary lease PDF upload failed:', uploadErr);
+          resolve({
+            filePath,
+            filename,
+            url: `/leases/${filename}`
+          });
+        }
       });
 
       writeStream.on('error', (err) => {
@@ -244,12 +266,33 @@ const generateReceiptPDF = (payment, lease, tenant, landlord) => {
 
       doc.end();
 
-      writeStream.on('finish', () => {
-        resolve({
-          filePath,
-          filename,
-          url: `/receipts/${filename}`
-        });
+      writeStream.on('finish', async () => {
+        try {
+          if (isCloudinaryConfigured()) {
+            const result = await cloudinary.uploader.upload(filePath, {
+              folder: 'rental_receipts',
+              resource_type: 'auto'
+            });
+            resolve({
+              filePath,
+              filename,
+              url: result.secure_url
+            });
+          } else {
+            resolve({
+              filePath,
+              filename,
+              url: `/receipts/${filename}`
+            });
+          }
+        } catch (uploadErr) {
+          console.error('Cloudinary receipt PDF upload failed:', uploadErr);
+          resolve({
+            filePath,
+            filename,
+            url: `/receipts/${filename}`
+          });
+        }
       });
 
       writeStream.on('error', (err) => {
