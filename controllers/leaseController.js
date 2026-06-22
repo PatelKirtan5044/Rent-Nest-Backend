@@ -2,6 +2,7 @@ const Lease = require('../models/Lease');
 const Property = require('../models/Property');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const Notification = require('../models/Notification');
 const ApiError = require('../utils/apiError');
 const ApiResponse = require('../utils/apiResponse');
 const { generateLeasePDF } = require('../services/pdfService');
@@ -50,12 +51,21 @@ exports.createLease = async (req, res, next) => {
     // Send email notification with PDF draft to tenant
     await sendLeaseAgreementEmail(tenant, lease, pdfData.filePath);
 
+    // Save notification in database
+    const notifMessage = `New residential lease agreement draft generated for ${property.title}. Please review and sign.`;
+    const notif = await Notification.create({
+      user: tenantId,
+      message: notifMessage,
+      type: 'info'
+    });
+
     // Notify tenant via Socket.io
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(tenantId.toString()).emit('new_lease_agreement', {
         leaseId: lease._id,
-        message: `New residential lease agreement draft generated for ${property.title}. Please review and sign.`
+        message: notifMessage,
+        notification: notif
       });
     }
 
@@ -104,14 +114,23 @@ exports.signLease = async (req, res, next) => {
       return next(new ApiError(403, 'You are not a party to this lease agreement.'));
     }
 
+    // Save signature notification in database
+    const signerName = signerRole === 'landlord' ? lease.landlord.name : lease.tenant.name;
+    const notifMessage = `${signerRole.charAt(0).toUpperCase() + signerRole.slice(1)} ${signerName} has signed the lease agreement for ${lease.property.title}.`;
+    const notif = await Notification.create({
+      user: otherPartyId,
+      message: notifMessage,
+      type: 'info'
+    });
+
     // Send sign notification via Socket.io
     if (req.app.get('socketio') && signerRole && otherPartyId) {
       const io = req.app.get('socketio');
-      const signerName = signerRole === 'landlord' ? lease.landlord.name : lease.tenant.name;
       io.to(otherPartyId).emit('lease_signed', {
         leaseId: lease._id,
         signerRole,
-        message: `${signerRole.charAt(0).toUpperCase() + signerRole.slice(1)} ${signerName} has signed the lease agreement for ${lease.property.title}.`
+        message: notifMessage,
+        notification: notif
       });
     }
 
@@ -132,17 +151,33 @@ exports.signLease = async (req, res, next) => {
         paymentStatus: 'pending'
       });
 
+      // Save active lease notification in database for both landlord and tenant
+      const activeMessage = `Lease agreement for ${lease.property.title} is now ACTIVE! Both parties signed.`;
+      
+      const landlordNotif = await Notification.create({
+        user: lease.landlord._id,
+        message: activeMessage,
+        type: 'success'
+      });
+
+      const tenantNotif = await Notification.create({
+        user: lease.tenant._id,
+        message: activeMessage,
+        type: 'success'
+      });
+
       // Send active status notifications to both parties
       if (req.app.get('socketio')) {
         const io = req.app.get('socketio');
-        const activeMessage = `Lease agreement for ${lease.property.title} is now ACTIVE! Both parties signed.`;
         io.to(lease.landlord._id.toString()).emit('lease_active', {
           leaseId: lease._id,
-          message: activeMessage
+          message: activeMessage,
+          notification: landlordNotif
         });
         io.to(lease.tenant._id.toString()).emit('lease_active', {
           leaseId: lease._id,
-          message: activeMessage
+          message: activeMessage,
+          notification: tenantNotif
         });
       }
     }
