@@ -66,6 +66,7 @@ app.use('/api/leases', require('./routes/leaseRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/maintenance', require('./routes/maintenanceRoutes'));
 app.use('/api/dashboards', require('./routes/dashboardRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // 5. Fallback Route for non-existent endpoints
 // app.all('*', (req, res, next) => {

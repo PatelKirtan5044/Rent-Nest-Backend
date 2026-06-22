@@ -1,5 +1,6 @@
 const Maintenance = require('../models/Maintenance');
 const Property = require('../models/Property');
+const Notification = require('../models/Notification');
 const ApiError = require('../utils/apiError');
 const ApiResponse = require('../utils/apiResponse');
 const { cloudinary, isCloudinaryConfigured } = require('../config/cloudinary');
@@ -47,12 +48,21 @@ exports.createRequest = async (req, res, next) => {
       images
     });
 
+    // Save notification in database
+    const notifMessage = `New maintenance ticket raised for ${property.title}`;
+    const notif = await Notification.create({
+      user: property.landlord,
+      message: notifMessage,
+      type: 'warning'
+    });
+
     // Notify landlord real-time via Socket.io
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(property.landlord.toString()).emit('new_maintenance_ticket', {
         ticket: newTicket,
-        message: `New maintenance ticket raised for ${property.title}`
+        message: notifMessage,
+        notification: notif
       });
     }
 
@@ -149,13 +159,22 @@ exports.updateRequestStatus = async (req, res, next) => {
 
     await ticket.save();
 
+    // Save notification in database
+    const notifMessage = `Maintenance ticket "${ticket.title}" was updated to: ${ticket.status}`;
+    const notif = await Notification.create({
+      user: ticket.tenant,
+      message: notifMessage,
+      type: 'info'
+    });
+
     // Trigger real-time alert to Tenant via socket
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(ticket.tenant.toString()).emit('maintenance_status_update', {
         ticketId: ticket._id,
         status: ticket.status,
-        message: `Maintenance ticket "${ticket.title}" was updated to: ${ticket.status}`
+        message: notifMessage,
+        notification: notif
       });
     }
 

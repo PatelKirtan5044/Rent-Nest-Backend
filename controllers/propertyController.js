@@ -1,5 +1,6 @@
 const Property = require('../models/Property');
 const Application = require('../models/Application');
+const Notification = require('../models/Notification');
 const ApiError = require('../utils/apiError');
 const ApiResponse = require('../utils/apiResponse');
 const { cloudinary, isCloudinaryConfigured } = require('../config/cloudinary');
@@ -253,12 +254,21 @@ exports.applyForProperty = async (req, res, next) => {
       moveInDate: new Date(moveInDate)
     });
 
+    // Save notification in database
+    const notifMessage = `New application received for ${property.title}`;
+    const notif = await Notification.create({
+      user: property.landlord,
+      message: notifMessage,
+      type: 'info'
+    });
+
     // Notify landlord via Socket.io if integrated
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(property.landlord.toString()).emit('new_application', {
         application: newApplication,
-        message: `New application received for ${property.title}`
+        message: notifMessage,
+        notification: notif
       });
     }
 
@@ -320,13 +330,23 @@ exports.updateApplicationStatus = async (req, res, next) => {
     application.status = status;
     await application.save();
 
+    // Save notification in database
+    const notifMessage = `Your application for ${application.property.title} was ${status}`;
+    const notifType = status === 'approved' ? 'success' : 'danger';
+    const notif = await Notification.create({
+      user: application.tenant,
+      message: notifMessage,
+      type: notifType
+    });
+
     // Send real-time Socket.io update to Tenant
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(application.tenant.toString()).emit('application_status_update', {
         applicationId: application._id,
         status: status,
-        message: `Your application for ${application.property.title} was ${status}`
+        message: notifMessage,
+        notification: notif
       });
     }
 

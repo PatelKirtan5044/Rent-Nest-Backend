@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const Lease = require('../models/Lease');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const ApiError = require('../utils/apiError');
 const ApiResponse = require('../utils/apiResponse');
 const paymentService = require('../services/paymentService');
@@ -134,12 +135,21 @@ exports.verifyPayment = async (req, res, next) => {
     payment.receiptPdfUrl = pdfData.url;
     await payment.save();
 
+    // Save notification in database
+    const notifMessage = `Rent payment of ₹${payment.amount.toLocaleString('en-IN')} received from ${payment.tenant.name} for ${payment.lease.property?.title || 'property'}.`;
+    const notif = await Notification.create({
+      user: payment.landlord._id,
+      message: notifMessage,
+      type: 'success'
+    });
+
     // Send real-time notification to Landlord
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(payment.landlord._id.toString()).emit('payment_completed', {
         paymentId: payment._id,
-        message: `Rent payment of ₹${payment.amount.toLocaleString('en-IN')} received from ${payment.tenant.name} for ${payment.lease.property?.title || 'property'}.`
+        message: notifMessage,
+        notification: notif
       });
     }
 
@@ -200,12 +210,21 @@ exports.manualRecordPayment = async (req, res, next) => {
     payment.receiptPdfUrl = pdfData.url;
     await payment.save();
 
+    // Save notification in database
+    const notifMessage = `Your landlord manually recorded a rent payment of ₹${payment.amount.toLocaleString('en-IN')} via ${paymentMethod.replace('_', ' ')}.`;
+    const notif = await Notification.create({
+      user: payment.tenant._id,
+      message: notifMessage,
+      type: 'success'
+    });
+
     // Send real-time notification to Tenant
     if (req.app.get('socketio')) {
       const io = req.app.get('socketio');
       io.to(payment.tenant._id.toString()).emit('payment_completed', {
         paymentId: payment._id,
-        message: `Your landlord manually recorded a rent payment of ₹${payment.amount.toLocaleString('en-IN')} via ${paymentMethod.replace('_', ' ')}.`
+        message: notifMessage,
+        notification: notif
       });
     }
 
